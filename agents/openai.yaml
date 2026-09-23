@@ -1,0 +1,4 @@
+interface:
+  display_name: "会计凭证检查与抽凭底稿"
+  short_description: "按完整凭证号逐张检查、记录比较过程和结论，交付可复核的 Excel 底稿"
+  default_prompt: "使用 $audit-voucher-check，按已确认范围和现有资料检查凭证，逐张保存检查过程与结论，交付 Excel 抽凭底稿。"
