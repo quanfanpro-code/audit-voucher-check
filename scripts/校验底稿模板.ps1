@@ -22,6 +22,7 @@ try {
     $f = $book.Worksheets.Item('五项标准复核')
     $excel.CalculateFull()
     Check ($book.Worksheets.Count -eq 5) 'Excel实际打开模板'
+    Check (($m.Range('A5').Value2 -eq '凭证附件') -and ($m.Range('Q5').Value2 -eq '主体／账套') -and ($d.Range('A15').Value2 -eq '凭证附件')) '附件位于第一列且主体字段保留'
     Check (($m.Range('B6').Value2 -eq '') -and ($m.Range('E6').Value2 -eq '')) '空白原号不产生假凭证或零金额'
     Check ($d.Range('D5').NumberFormat -eq '@') '原始凭证号按文本保存'
     Check (($d.Range('K39').Validation.ShowError -eq $true) -and ($d.Range('K39').Validation.AlertStyle -eq 1)) '结果下拉启用停止型提示'
@@ -40,10 +41,12 @@ try {
     $d.Range('D4').Value2 = '虚构测试账套'
     $d.Range('D5').Value2 = $d.Name
     $d.Range('D9').Value2 = 2500.0
+    $d.Range('D15').Value2 = '虚构测试：采购合同、付款审批单、银行回单。'
     $d.Range('K39').Value2 = '不正确'
     $d.Range('L39').Value2 = '虚构验证：数量多记5件、金额多记500；另有服务税额100的资格未明。'
     $d.Range('D55').Value2 = '仅服务税额100的抵扣资格未明；数量差错500已查明。'
     $excel.CalculateFull()
+    Check (($m.Range('A6').Value2 -eq $d.Range('D15').Value2) -and ($m.Range('Q6').Value2 -eq '虚构测试账套')) '附件摘要和主体分别进入总表'
     Check ($m.Range('I6').Value2 -eq '未执行') '五项输入不会自动伪造整张专业结论'
     $d.Range('D52').Value2 = '发现明确问题，另有事项未能判断'
     $excel.CalculateFull()
@@ -52,10 +55,11 @@ try {
     $excel.CalculateFull()
     Check ($m.Range('E6').Value2 -ceq 0.0) '零金额和空白分开'
     $second.Range('D5').Value2 = $second.Name
+    $second.Range('D15').Value2 = '虚构测试：费用报销单、出租车电子发票。'
     $second.Range('D52').Value2 = '所执行检查未发现具体问题'
-    $m.Range('A6:P6').Copy($m.Range('A7:P7')) | Out-Null
+    $m.Range('A6:Q6').Copy($m.Range('A7:Q7')) | Out-Null
     $f.Range('A6:J6').Copy($f.Range('A7:J7')) | Out-Null
-    foreach ($cell in $m.Range('A7:P7').Cells) {
+    foreach ($cell in $m.Range('A7:Q7').Cells) {
         if ($cell.HasFormula) { $cell.Formula = ([string]$cell.Formula).Replace($d.Name, $second.Name) }
     }
     foreach ($cell in $f.Range('A7:J7').Cells) {
@@ -63,11 +67,16 @@ try {
     }
     $excel.CalculateFull()
     Check (($m.Range('B7').Value2 -eq $second.Name) -and ($m.Range('I7').Value2 -eq '所执行检查未发现具体问题') -and ($m.Range('K7').Value2 -eq '')) '第二张引用独立且不继承前张限制'
+    Check (($m.Range('A7').Value2 -eq $second.Range('D15').Value2) -and ($m.Range('A7').Value2 -ne $m.Range('A6').Value2)) '两张附件摘要分别引用且不串用'
     foreach ($row in 6,7) {
         $target = [regex]::Match([string]$m.Range("L$row").Formula, "#'([^']+)'!A1").Groups[1].Value
         Check ($target -eq $m.Range("B$row").Value2) ('第' + $row + '行链接与完整凭证号对应')
         $excel.Goto($book.Worksheets.Item($target).Range('A1'))
         Check ($book.ActiveSheet.Name -eq $target) ('Excel可定位到' + $target)
+        $back = $book.Worksheets.Item($target).Range('A1')
+        Check (($back.Value2 -eq '返回逐张抽凭记录') -and ($back.Formula -eq '=HYPERLINK("#''逐张抽凭记录''!A5","返回逐张抽凭记录")')) '复制页保留有效返回总表链接'
+        $excel.Goto($m.Range('A5'))
+        Check ($book.ActiveSheet.Name -eq $m.Name) 'Excel可返回逐张抽凭记录'
     }
     $second.Range('25:26').EntireRow.Insert() | Out-Null
     $excel.CalculateFull()
