@@ -72,15 +72,28 @@ try {
         $target = [regex]::Match([string]$m.Range("L$row").Formula, "#'([^']+)'!A1").Groups[1].Value
         Check ($target -eq $m.Range("B$row").Value2) ('第' + $row + '行链接与完整凭证号对应')
         $excel.Goto($book.Worksheets.Item($target).Range('A1'))
-        Check ($book.ActiveSheet.Name -eq $target) ('Excel可定位到' + $target)
+        Check ($book.ActiveSheet.Name -eq $target) ('公式目标页签存在且可定位到' + $target)
         $back = $book.Worksheets.Item($target).Range('A1')
         Check (($back.Value2 -eq '返回逐张抽凭记录') -and ($back.Formula -eq '=HYPERLINK("#''逐张抽凭记录''!A5","返回逐张抽凭记录")')) '复制页保留有效返回总表链接'
         $excel.Goto($m.Range('A5'))
-        Check ($book.ActiveSheet.Name -eq $m.Name) 'Excel可返回逐张抽凭记录'
+        Check ($book.ActiveSheet.Name -eq $m.Name) '总表页签存在且可定位'
     }
     $second.Range('25:26').EntireRow.Insert() | Out-Null
     $excel.CalculateFull()
     Check ($m.Range('I7').Value2 -eq '所执行检查未发现具体问题') '扩行后当前结论引用保持正确'
+    # 同一原号可属于两个账套；页签用不同名称，表内保留原号和账套。
+    $oldName = $second.Name
+    $second.Name = '乙账套_2099年01月记0001号'
+    $second.Range('D4').Value2 = '虚构测试乙账套'
+    $second.Range('D5').Value2 = $d.Range('D5').Value2
+    foreach ($cell in @($m.Range('L7'), $f.Range('J7'))) {
+        $cell.Formula = ([string]$cell.Formula).Replace($oldName, $second.Name)
+    }
+    $excel.CalculateFull()
+    Check (($m.Range('B6').Value2 -eq $m.Range('B7').Value2) -and ($m.Range('Q6').Value2 -ne $m.Range('Q7').Value2)) '同原号跨账套仍保留两条独立记录'
+    $targetA = [regex]::Match([string]$m.Range('L6').Formula, "#'([^']+)'!A1").Groups[1].Value
+    $targetB = [regex]::Match([string]$m.Range('L7').Formula, "#'([^']+)'!A1").Groups[1].Value
+    Check (($targetA -ne $targetB) -and ($targetA -eq $d.Name) -and ($targetB -eq $second.Name)) '同原号跨账套的明细目标不串页'
 } finally {
     if ($book) { $book.Close($false) }
     if ($excel) { $excel.Quit(); [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($excel) }
